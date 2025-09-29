@@ -88,6 +88,7 @@ class ModelWrapper:
 
         # load model checkpoint
         cfg_path = os.path.join(
+            Path(__file__).parents[2], 
             "configs/model/architecture", f"foldingdit_{simplefold_model[11:]}.yaml"
         )
         if self.backend == "torch":
@@ -126,7 +127,7 @@ class ModelWrapper:
         if not os.path.exists(plddt_ckpt_path):
             os.system(f"curl -L -o {plddt_ckpt_path} {plddt_ckpt_url}")
 
-        plddt_module_path = "configs/model/architecture/plddt_module.yaml"
+        plddt_module_path = os.path.join(Path(__file__).parents[2], "configs/model/architecture/plddt_module.yaml")
         plddt_checkpoint = torch.load(
             plddt_ckpt_path, map_location="cpu", weights_only=False
         )
@@ -162,7 +163,7 @@ class ModelWrapper:
                 f"curl -L -o {plddt_latent_ckpt_path} {ckpt_url_dict['simplefold_1.6B']}"
             )
 
-        plddt_latent_config_path = "configs/model/architecture/foldingdit_1.6B.yaml"
+        plddt_latent_config_path = os.path.join(Path(__file__).parents[2], "configs/model/architecture/foldingdit_1.6B.yaml")
         plddt_latent_checkpoint = torch.load(
             plddt_latent_ckpt_path, map_location="cpu", weights_only=False
         )
