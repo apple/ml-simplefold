@@ -1,0 +1,6 @@
+_target_: model.torch.sampler.EMSampler
+num_timesteps: 500
+t_start: 1e-4
+tau: 0.3
+log_timesteps: True
+w_cutoff: 0.99

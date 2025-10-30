@@ -1,0 +1,2 @@
+_target_: processor.protein_processor.ProteinDataProcessor
+_partial_: True

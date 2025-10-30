@@ -1,0 +1,5 @@
+_target_: processor.default_processor.DefaultProcessor
+_partial_: True
+npoints_context: [16384] # needs to be a list (64x64 pixels)
+npoints_query: [1024] # needs to be a list
+sampling: 'uniform'

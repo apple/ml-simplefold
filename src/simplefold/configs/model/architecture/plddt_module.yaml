@@ -1,0 +1,24 @@
+_target_: model.torch.confidence_module.ConfidenceModule
+hidden_size: 1536
+num_plddt_bins: 50
+transformer_blocks: 
+  _target_: model.torch.blocks.HomogenTrunk
+  depth: 4
+  block:
+    _target_: model.torch.blocks.TransformerBlock
+    _partial_: true
+    hidden_size: 1536
+    mlp_ratio: 4.0
+    use_swiglu: True # SwiGLU FFN
+    self_attention_layer:
+      _target_: model.torch.layers.EfficientSelfAttentionLayer
+      _partial_: True
+      hidden_size: 1536
+      num_heads: 24
+      qk_norm: True
+      pos_embedder:
+        _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+        in_dim: 4
+        embed_dim: 1536
+        num_heads: 24
+        base: 100.0

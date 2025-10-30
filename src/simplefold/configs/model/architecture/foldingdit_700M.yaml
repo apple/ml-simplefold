@@ -1,0 +1,101 @@
+_target_: model.torch.architecture.FoldingDiT
+
+hidden_size: 1152
+num_heads: 16
+atom_num_heads: 4
+output_channels: 3
+use_atom_mask: False
+use_length_condition: True
+esm_dropout_prob: 0.0
+esm_model: esm2_3B
+
+time_embedder:
+  _target_: model.torch.layers.TimestepEmbedder
+  hidden_size: 1152
+
+aminoacid_pos_embedder:
+  _target_: model.torch.pos_embed.AbsolutePositionEncoding
+  in_dim: 1
+  embed_dim: 1152
+  include_input: True
+
+pos_embedder:
+  _target_: model.torch.pos_embed.FourierPositionEncoding
+  in_dim: 3
+  include_input: True
+  min_freq_log2: 0
+  max_freq_log2: 12
+  num_freqs: 128
+  log_sampling: True
+
+trunk:
+  _target_: model.torch.blocks.HomogenTrunk
+  depth: 28
+  block: 
+    _target_: model.torch.blocks.DiTBlock
+    _partial_: True # because in the for loop we create a new module
+    hidden_size: 1152
+    mlp_ratio: 4.0
+    use_swiglu: True # SwiGLU FFN
+    self_attention_layer:
+      _target_: model.torch.layers.EfficientSelfAttentionLayer
+      _partial_: True
+      hidden_size: 1152
+      num_heads: 16
+      qk_norm: True
+      pos_embedder:
+        _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+        in_dim: 4
+        embed_dim: 1152
+        num_heads: 16
+        base: 100.0
+
+atom_hidden_size_enc: 256
+atom_n_queries_enc: 32
+atom_n_keys_enc: 128
+atom_encoder_transformer:
+  _target_: model.torch.blocks.HomogenTrunk
+  depth: 2
+  block: 
+    _target_: model.torch.blocks.DiTBlock
+    _partial_: True # because in the for loop we create a new module
+    hidden_size: 256
+    mlp_ratio: 4.0
+    use_swiglu: True # SwiGLU FFN
+    self_attention_layer:
+      _target_: model.torch.layers.EfficientSelfAttentionLayer
+      _partial_: True
+      hidden_size: 256
+      num_heads: 4
+      qk_norm: True
+      pos_embedder:
+        _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+        in_dim: 4
+        embed_dim: 256
+        num_heads: 4
+        base: 100.0
+
+atom_hidden_size_dec: 256
+atom_n_queries_dec: 32
+atom_n_keys_dec: 128
+atom_decoder_transformer:
+  _target_: model.torch.blocks.HomogenTrunk
+  depth: 2
+  block: 
+    _target_: model.torch.blocks.DiTBlock
+    _partial_: True # because in the for loop we create a new module
+    hidden_size: 256
+    mlp_ratio: 4.0
+    use_swiglu: True # SwiGLU FFN
+    self_attention_layer:
+      _target_: model.torch.layers.EfficientSelfAttentionLayer
+      _partial_: True
+      hidden_size: 256
+      num_heads: 4
+      qk_norm: True
+      pos_embedder:
+        _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+        in_dim: 4
+        embed_dim: 256
+        num_heads: 4
+        base: 100.0
