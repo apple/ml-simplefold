@@ -183,7 +183,6 @@ def initialize_others(args, device):
         scale=16.0, 
         ref_scale=5.0, 
         multiplicity=1,
-        inference_multiplicity=args.nsample_per_protein,
         backend=args.backend,
     )
 
@@ -210,44 +209,65 @@ def generate_structure(
     model, plddt_latent_module, plddt_out_module, device
 ):
     # run inference for target protein
-    if args.backend == "torch":
-        noise = torch.randn_like(batch['coords']).to(device)
-    elif args.backend == "mlx":
-        noise = mx.random.normal(batch['coords'].shape)
-    out_dict = sampler.sample(model, flow, noise, batch)
-
-    if args.plddt:
+    coord_samples = []
+    pad_mask = batch["atom_pad_mask"]
+    if args.plddt and plddt_latent_module is not None and plddt_out_module is not None:
+        compute_plddt = True
+        plddt_samples = []
+    else:
+        compute_plddt = False
+        plddt_samples = None
+    plddts = None
+    for _ in range(args.nsample_per_protein):
         if args.backend == "torch":
-            t = torch.ones(batch['coords'].shape[0], device=device)
-            # use unscaled coords to extract latent for pLDDT prediction
-            out_feat = plddt_latent_module(
-                out_dict["denoised_coords"].detach(), t, batch)
-            plddt_out_dict = plddt_out_module(
-                out_feat["latent"].detach(),
-                batch,
-            )
+            noise = torch.randn_like(batch["coords"]).to(device)
         elif args.backend == "mlx":
-            t = mx.ones(batch['coords'].shape[0])
-            # use unscaled coords to extract latent for pLDDT prediction
-            out_feat = plddt_latent_module(
-                out_dict["denoised_coords"], t, batch)
-            plddt_out_dict = plddt_out_module(
-                out_feat["latent"],
-                batch,
-            )
-        # scale pLDDT to [0, 100]
-        plddts = plddt_out_dict["plddt"] * 100.0
-    else:
-        plddts = None
+            noise = mx.random.normal(batch["coords"].shape)
+        out_dict = sampler.sample(model, flow, noise, batch)
 
-    out_dict = processor.postprocess(out_dict, batch)
-    # sampled_coord = out_dict['denoised_coords'].detach()
+        if compute_plddt:
+            if args.backend == "torch":
+                t = torch.ones(batch['coords'].shape[0], device=device)
+                out_feat = plddt_latent_module(
+                    out_dict["denoised_coords"].detach(), t, batch
+                )
+                plddt_out_dict = plddt_out_module(
+                    out_feat["latent"].detach(),
+                    batch,
+                )
+            elif args.backend == "mlx":
+                t = mx.ones(batch['coords'].shape[0])
+                out_feat = plddt_latent_module(
+                    out_dict["denoised_coords"], t, batch
+                )
+                plddt_out_dict = plddt_out_module(
+                    out_feat["latent"],
+                    batch,
+                )
+            # scale pLDDT to [0, 100]
+            plddt_samples.append(plddt_out_dict["plddt"] * 100.0)
+
+        out_dict = processor.postprocess(out_dict, batch)
+        if args.backend == "torch":
+            coord_samples.append(out_dict["denoised_coords"].detach())
+        else:
+            coord_samples.append(out_dict["denoised_coords"])
+
     if args.backend == "torch":
-        sampled_coord = out_dict['denoised_coords'].detach()
+        sampled_coord = torch.cat(coord_samples, dim=0)
+        pad_mask = pad_mask.detach().repeat_interleave(
+            args.nsample_per_protein, dim=0
+        )
+        if compute_plddt:
+            plddts = torch.cat(plddt_samples, dim=0).detach()
     else:
-        sampled_coord = out_dict['denoised_coords']
+        sampled_coord = mx.concatenate(coord_samples, axis=0)
+        pad_mask = mx.concatenate(
+            [pad_mask] * args.nsample_per_protein, axis=0
+        )
+        if compute_plddt:
+            plddts = mx.concatenate(plddt_samples, axis=0)
 
-    pad_mask = batch['atom_pad_mask']
     return sampled_coord, pad_mask, plddts
 
 
