@@ -110,6 +110,7 @@ def initialize_folding_model(args):
         mlx_state_dict = {k: mx.array(v) for k, v in starmap(map_torch_to_mlx, checkpoint.items()) if k is not None}
         model.update(tree_unflatten(list(mlx_state_dict.items())))
     print(f"Folding model {simplefold_model} loaded.")
+    print(f"Using device: {device}.")
 
     model.eval()
     return model, device
