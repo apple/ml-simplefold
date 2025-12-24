@@ -25,6 +25,3 @@ model:
     tau: 0.01
     log_timesteps: True
     w_cutoff: 0.99
-
-  processor:
-    inference_multiplicity: 1
