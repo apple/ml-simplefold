@@ -1,0 +1,39 @@
+_target_: model.simplefold.SimpleFold
+ema_decay: 0.999
+clip_grad_norm_val: 2.0
+use_rigid_align: True
+smooth_lddt_loss_weight: 1.0
+lddt_cutoff: 15.0
+esm_model: "esm2_3B"
+lddt_weight_schedule: False
+sample_dir: ${paths.sample_dir}
+
+architecture:
+  esm_model: ${model.esm_model}
+
+path: 
+  _target_: model.flow.LinearPath
+
+loss:
+  _target_: torch.nn.MSELoss
+  reduction: 'none'
+  reduce: False
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0
+  max_steps: ???
+
+scheduler:
+  _target_: utils.lr_scheduler.LinearWarmup
+  _partial_: true
+  min_lr: 1e-6
+  max_lr: ${model.optimizer.lr}
+  warmup_steps: 10
+
+processor:
+  scale: 16.0
+  ref_scale: 5.0
+  multiplicity: 16

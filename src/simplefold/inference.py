@@ -13,6 +13,7 @@ from copy import deepcopy
 from pathlib import Path
 from itertools import starmap
 import lightning.pytorch as pl
+from importlib import resources
 
 from model.flow import LinearPath
 from model.torch.sampler import EMSampler
@@ -49,6 +50,30 @@ ckpt_url_dict = {
 plddt_ckpt_url = "https://ml-site.cdn-apple.com/models/simplefold/plddt_module_1.6B.ckpt"
 
 
+def get_config_path(relative_path):
+    """Get the absolute path to a config file using importlib.resources."""
+    try:
+        # Remove 'configs/' prefix if present since we access configs directly as a subpackage
+        config_subpath = relative_path.replace('configs/', '')
+
+        # Access configs as a subpackage resource
+        config_files = resources.files('simplefold.configs')
+        config_path = config_files / config_subpath
+
+        if config_path.is_file():
+            return str(config_path)
+
+    except Exception as e:
+        pass
+
+    # If importlib.resources fails, raise an informative error
+    raise FileNotFoundError(
+        f"Could not find config file: {relative_path}. "
+        f"Expected to find it in the simplefold.configs package."
+    )
+
+
+
 def initialize_folding_model(args):
     # define folding model
     simplefold_model = args.simplefold_model
@@ -62,7 +87,7 @@ def initialize_folding_model(args):
     if not os.path.exists(ckpt_path):
         os.makedirs(ckpt_dir, exist_ok=True)
         os.system(f"curl -L {ckpt_url_dict[simplefold_model]} -o {ckpt_path}")
-    cfg_path = os.path.join("configs/model/architecture", f"foldingdit_{simplefold_model[11:]}.yaml")
+    cfg_path = get_config_path(f"configs/model/architecture/foldingdit_{simplefold_model[11:]}.yaml")
 
     checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
 
@@ -85,6 +110,7 @@ def initialize_folding_model(args):
         mlx_state_dict = {k: mx.array(v) for k, v in starmap(map_torch_to_mlx, checkpoint.items()) if k is not None}
         model.update(tree_unflatten(list(mlx_state_dict.items())))
     print(f"Folding model {simplefold_model} loaded.")
+    print(f"Using device: {device}.")
 
     model.eval()
     return model, device
@@ -100,7 +126,7 @@ def initialize_plddt_module(args, device):
         os.makedirs(args.ckpt_dir, exist_ok=True)
         os.system(f"curl -L {plddt_ckpt_url} -o {plddt_ckpt_path}")
 
-    plddt_module_path = "configs/model/architecture/plddt_module.yaml"
+    plddt_module_path = get_config_path("configs/model/architecture/plddt_module.yaml")
     plddt_checkpoint = torch.load(plddt_ckpt_path, map_location="cpu", weights_only=False)
 
     if args.backend == "torch":
@@ -128,7 +154,7 @@ def initialize_plddt_module(args, device):
         os.makedirs(args.ckpt_dir, exist_ok=True)
         os.system(f"curl -L {ckpt_url_dict['simplefold_1.6B']} -o {plddt_latent_ckpt_path}")
 
-    plddt_latent_config_path = "configs/model/architecture/foldingdit_1.6B.yaml"
+    plddt_latent_config_path = get_config_path("configs/model/architecture/foldingdit_1.6B.yaml")
     plddt_latent_checkpoint = torch.load(plddt_latent_ckpt_path, map_location="cpu", weights_only=False)
 
     if args.backend == "torch":

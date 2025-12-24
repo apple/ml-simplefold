@@ -48,3 +48,11 @@ simplefold = "simplefold.cli:main"
 # Tell hatchling where your packages live when using src layout:
 [tool.hatch.build.targets.wheel]
 packages = ["src/simplefold"]
+
+# Tell setuptools to include YAML files from configs
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["simplefold*"]
+
+[tool.setuptools.package-data]
+"simplefold.configs" = ["**/*.yaml"]
