@@ -191,8 +191,6 @@ class SimpleFold(pl.LightningModule):
                 )
                 / 4.0
             )
-            .view(B, N, N)
-            .mean(dim=0)
         )
 
         # Calculate masked averaging
