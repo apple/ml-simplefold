@@ -26,7 +26,6 @@ class ProteinDataProcessor:
         scale=16.0, 
         ref_scale=5.0, 
         multiplicity=1,
-        inference_multiplicity=1,
         backend="torch",
     ):
         self.device = device
@@ -34,7 +33,6 @@ class ProteinDataProcessor:
         self.ref_scale = ref_scale
         # if multiplicity > 1, effective batch size is multiplicity * batch_size
         self.multiplicity = multiplicity
-        self.inference_multiplicity = inference_multiplicity
         self.backend = backend
         if self.backend == "mlx":
             self.center_random_fn = mlx_center_random
@@ -69,7 +67,7 @@ class ProteinDataProcessor:
 
         esmaa = af2_idx_to_esm_idx(aatype, mask, af2_to_esm)
 
-        multiplicity = self.multiplicity if not inference else self.inference_multiplicity
+        multiplicity = self.multiplicity if not inference else 1
 
         esm_s_, _ = compute_language_model_representations(
             esmaa, esm_model, esm_dict, backend=self.backend
@@ -167,7 +165,7 @@ class ProteinDataProcessor:
             batch_size, -1)
         batch['mol_index'] = mol_index
 
-        batch = self.batch_to_device(batch, multiplicity=self.inference_multiplicity)
+        batch = self.batch_to_device(batch)
 
         if esm_model is not None and batch.get('esm_s', None) is None:
             print("Processing ESM features for inference...")

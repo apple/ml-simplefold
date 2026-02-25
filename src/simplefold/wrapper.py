@@ -270,7 +270,6 @@ class InferenceWrapper:
             scale=16.0,
             ref_scale=5.0,
             multiplicity=1,
-            inference_multiplicity=self.nsample_per_protein,
             backend=self.backend,
         )
 
@@ -320,49 +319,69 @@ class InferenceWrapper:
 
     def run_inference(self, batch, model, plddt_model, device):
         # run inference for target protein
-        if self.backend == "torch":
-            noise = torch.randn_like(batch["coords"]).to(device)
-        elif self.backend == "mlx":
-            noise = mx.random.normal(batch["coords"].shape)
-        out_dict = self.sampler.sample(model, self.flow, noise, batch)
-
         plddt_out_module = plddt_model["plddt_out_module"]
         plddt_latent_module = plddt_model["plddt_latent_module"]
-
+        coord_samples = []
         if plddt_latent_module is None or plddt_out_module is None:
-            plddts = None
+            compute_plddt = False
+            plddt_samples = None
         else:
-            if self.backend == "torch":
-                t = torch.ones(batch["coords"].shape[0], device=device)
-                # use unscaled coords to extract latent for pLDDT prediction
-                out_feat = plddt_latent_module(
-                    out_dict["denoised_coords"].detach(), t, batch
-                )
-                plddt_out_dict = plddt_out_module(
-                    out_feat["latent"].detach(),
-                    batch,
-                )
-            elif self.backend == "mlx":
-                t = mx.ones(batch["coords"].shape[0])
-                # use unscaled coords to extract latent for pLDDT prediction
-                out_feat = plddt_latent_module(out_dict["denoised_coords"], t, batch)
-                plddt_out_dict = plddt_out_module(
-                    out_feat["latent"],
-                    batch,
-                )
-            # scale pLDDT to [0, 100]
-            plddts = plddt_out_dict["plddt"] * 100.0
+            compute_plddt = True
+            plddt_samples = []
+        pad_mask = batch["atom_pad_mask"]
+        plddts = None
 
-        out_dict = self.processor.postprocess(out_dict, batch)
-        # sampled_coord = out_dict['denoised_coords'].detach()
+        for _ in range(self.nsample_per_protein):
+            if self.backend == "torch":
+                noise = torch.randn_like(batch["coords"]).to(device)
+            elif self.backend == "mlx":
+                noise = mx.random.normal(batch["coords"].shape)
+            out_dict = self.sampler.sample(model, self.flow, noise, batch)
+
+            if compute_plddt:
+                if self.backend == "torch":
+                    t = torch.ones(batch["coords"].shape[0], device=device)
+                    out_feat = plddt_latent_module(
+                        out_dict["denoised_coords"].detach(), t, batch
+                    )
+                    plddt_out_dict = plddt_out_module(
+                        out_feat["latent"].detach(),
+                        batch,
+                    )
+                elif self.backend == "mlx":
+                    t = mx.ones(batch["coords"].shape[0])
+                    out_feat = plddt_latent_module(out_dict["denoised_coords"], t, batch)
+                    plddt_out_dict = plddt_out_module(
+                        out_feat["latent"],
+                        batch,
+                    )
+                # scale pLDDT to [0, 100]
+                plddt_samples.append(plddt_out_dict["plddt"] * 100.0)
+
+            out_dict = self.processor.postprocess(out_dict, batch)
+            if self.backend == "torch":
+                coord_samples.append(out_dict["denoised_coords"].detach())
+            else:
+                coord_samples.append(out_dict["denoised_coords"])
+
         if self.backend == "torch":
-            sampled_coord = out_dict["denoised_coords"].detach()
+            sampled_coord = torch.cat(coord_samples, dim=0)
+            pad_mask = pad_mask.detach().repeat_interleave(
+                self.nsample_per_protein, dim=0
+            )
+            if compute_plddt:
+                plddts = torch.cat(plddt_samples, dim=0).detach()
         else:
-            sampled_coord = out_dict["denoised_coords"]
+            sampled_coord = mx.concatenate(coord_samples, axis=0)
+            pad_mask = mx.concatenate(
+                [pad_mask] * self.nsample_per_protein, axis=0
+            )
+            if compute_plddt:
+                plddts = mx.concatenate(plddt_samples, axis=0)
 
         return {
             "sampled_coord": sampled_coord,
-            "pad_mask": batch["atom_pad_mask"],
+            "pad_mask": pad_mask,
             "plddts": plddts,
         }
 
