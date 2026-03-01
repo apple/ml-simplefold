@@ -150,6 +150,19 @@ If you found this code useful, please cite the following paper:
   year={2025}
 }
 ```
+SimpleFold was trained on experimental protein structures from the Protein Data Bank (PDB). The PDB is managed by the worldwide PDB (wwPDB) organization. Please cite the relevant PDB article(s) when using experimental structures:
+```
+@article{wwpdb2024,
+  title={Protein Data Bank: The single global archive for 3D structural data of biological macromolecules},
+  author={Berman, Helen and Henrick, Kim and Nakamura, Haruki},
+  journal={Nucleic Acids Research},
+  volume={51},
+  number={D1},
+  pages={D463--D471},
+  year={2023},
+  publisher={Oxford University Press}
+}
+```
 
 ## Acknowledgements
 Our codebase is built using multiple opensource contributions, please see [ACKNOWLEDGEMENTS](ACKNOWLEDGEMENTS) for more details. 
